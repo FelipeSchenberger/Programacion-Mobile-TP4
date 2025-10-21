@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import {
   SafeAreaView,
   View,
@@ -19,8 +19,8 @@ import { v4 as uuidv4 } from "uuid";
    Windows: run `ipconfig`
 */
 const SERVER_HOST = "192.168.1.42"; // <- cambia esto por tu IP local
-const API_HOST = Platform.OS === "web" ? "http://localhost:3001" : `http://${SERVER_HOST}:3001`;
-const WS_URL = Platform.OS === "web" ? "ws://localhost:4000" : `ws://${SERVER_HOST}:4000`;
+const API_HOST = Platform.OS === "web" ? "http://localhost:3002" : `http://${SERVER_HOST}:3002`;
+const WS_URL = Platform.OS === "web" ? "ws://localhost:4001" : `ws://${SERVER_HOST}:4001`;
 
 export default function App() {
   const [fromAccount, setFromAccount] = useState("alice-001");
@@ -34,15 +34,7 @@ export default function App() {
   const connectedRef = useRef(false);
   const retryRef = useRef(0);
 
-  useEffect(() => {
-    startWs();
-    return () => {
-      if (wsRef.current) wsRef.current.close();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
-
-  function startWs() {
+  const startWs = useCallback(() => {
     try {
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
@@ -52,6 +44,14 @@ export default function App() {
         retryRef.current = 0;
         const msg = { type: "subscribe", userId };
         try { ws.send(JSON.stringify(msg)); } catch {}
+        // Al conectar (o reconectar), suscríbete al usuario y a todas las transacciones existentes en la UI
+        const subscriptions = [
+          { type: "subscribe", userId },
+          ...Object.keys(eventsByTxn).map(transactionId => ({ type: "subscribe", transactionId }))
+        ];
+        for (const msg of subscriptions) {
+          try { ws.send(JSON.stringify(msg)); } catch {}
+        }
         console.log("WS open ->", WS_URL);
       };
 
@@ -92,7 +92,16 @@ export default function App() {
       console.warn("Failed to start WS", e);
       setTimeout(() => startWs(), 2000);
     }
-  }
+  }, [userId]); // La función se recreará solo si cambia el userId
+  }, [userId, eventsByTxn]); // Ahora también depende de las transacciones existentes
+
+  useEffect(() => {
+    startWs();
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startWs]); // Ahora depende de la función memoizada
 
   async function submitTransaction() {
     const transactionId = uuidv4();
@@ -117,6 +126,11 @@ export default function App() {
         Alert.alert("Error creating transaction", `${res.status} ${text}`);
         return;
       }
+
+      // --- CAMBIO CLAVE ---
+      // Añade la transacción a la lista de forma optimista para que aparezca en la UI.
+      // El timeline aparecerá con "(sin eventos aún)" hasta que lleguen por WebSocket.
+      setEventsByTxn((prev) => ({ ...prev, [transactionId]: [] }));
 
       if (connectedRef.current && wsRef.current) {
         try { wsRef.current.send(JSON.stringify({ type: "subscribe", transactionId })); } catch {}

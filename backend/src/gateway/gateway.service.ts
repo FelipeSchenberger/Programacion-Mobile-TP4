@@ -17,7 +17,7 @@ export class GatewayService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     // 2. Iniciar el servidor de WebSockets
-    const port = parseInt(process.env.PORT || '4000', 10);
+    const port = parseInt(process.env.PORT || '4001', 10);
     this.wss = new WebSocket.Server({ port });
 
     this.wss.on('connection', (ws: WebSocket & { subscriptions?: any }) => {
