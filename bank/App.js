@@ -42,8 +42,6 @@ export default function App() {
       ws.onopen = () => {
         connectedRef.current = true;
         retryRef.current = 0;
-        const msg = { type: "subscribe", userId };
-        try { ws.send(JSON.stringify(msg)); } catch {}
         // Al conectar (o reconectar), suscríbete al usuario y a todas las transacciones existentes en la UI
         const subscriptions = [
           { type: "subscribe", userId },
@@ -92,7 +90,6 @@ export default function App() {
       console.warn("Failed to start WS", e);
       setTimeout(() => startWs(), 2000);
     }
-  }, [userId]); // La función se recreará solo si cambia el userId
   }, [userId, eventsByTxn]); // Ahora también depende de las transacciones existentes
 
   useEffect(() => {
