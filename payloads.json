@@ -1,0 +1,4 @@
+
+{"fromAccount": "123", "toAccount": "456", "amount": 100, "currency": "USD", "userId": "user123"}
+{"fromAccount": "789", "toAccount": "101", "amount": 50, "currency": "EUR", "userId": "user456"}
+{"fromAccount": "212", "toAccount": "313", "amount": 200, "currency": "GBP", "userId": "user789"}
